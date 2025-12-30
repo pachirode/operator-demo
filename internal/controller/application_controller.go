@@ -18,9 +18,9 @@ package controller
 
 import (
 	"context"
-	appsv1 "k8s.io/api/apps/v1"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,6 +43,7 @@ type ApplicationReconciler struct {
 // +kubebuilder:rbac:groups=core.crd.pachirode.com,resources=applications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core.crd.pachirode.com,resources=applications/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core.crd.pachirode.com,resources=applications/finalizers,verbs=update
+// +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -54,9 +55,10 @@ type ApplicationReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.22.1/pkg/reconcile
 func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	logger := logf.FromContext(ctx)
 	log := logger.WithValues("application", req.NamespacedName)
+
+	log.Info("start reconcile")
 
 	var app v1.Application
 	if err := r.Get(ctx, req.NamespacedName, &app); err != nil {
@@ -76,8 +78,10 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		if controllerutil.ContainsFinalizer(&app, APP_FINALIZER) {
 			// 检测到存在 finalizer 需要先做清理
+			log.Info("start cleanup")
 
 			// 移除 finalizer
+			log.Info("start remove finalizer")
 			controllerutil.RemoveFinalizer(&app, APP_FINALIZER)
 			if err := r.Update(ctx, &app); err != nil {
 				return ctrl.Result{}, err
@@ -88,7 +92,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	// 检测逻辑
+	// 调谐逻辑
 	if err := r.syncApp(ctx, app); err != nil {
 		log.Error(err, "unable to sync application")
 		return ctrl.Result{}, err
@@ -116,6 +120,7 @@ func (r *ApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *ApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.Application{}).
+		Owns(&appsv1.Deployment{}).
 		Named("application").
 		Complete(r)
 }

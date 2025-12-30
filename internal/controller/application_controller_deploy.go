@@ -98,8 +98,9 @@ func (r *ApplicationReconciler) generateDeployment(app v1.Application) appsv1.De
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  app.Name,
-							Image: app.Spec.Image,
+							Name:            app.Name,
+							Image:           app.Spec.Image,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 						},
 					},
 				},
